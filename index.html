@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Buona Festa del Papà - Costruttore Eroe</title>
+    <!-- Three.js Base e OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --sims-blue: #1b5299; --sims-green: #4caf50; --sims-pink: #e84393;
+            --ui-bg: rgba(255, 255, 255, 0.9);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, sans-serif; touch-action: manipulation; }
+        body { overflow: hidden; background-color: #87CEEB; margin: 0; }
+        
+        /* Intro Screen */
+        #intro-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #1b5299, #4caf50); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 20px; transition: opacity 0.5s; }
+        #intro-screen h1 { font-size: 36px; margin-bottom: 20px; text-shadow: 2px 2px 5px rgba(0,0,0,0.4); line-height: 1.3; }
+        #intro-screen p { font-size: 22px; margin-bottom: 40px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); }
+        #btn-start { background: #ffc107; color: #333; border: none; padding: 15px 40px; font-size: 22px; font-weight: bold; border-radius: 30px; cursor: pointer; box-shadow: 0 6px 15px rgba(0,0,0,0.3); transition: transform 0.2s; }
+        #btn-start:active { transform: scale(0.95); }
+
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* UI Layer */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; display: none;}
+        .pointer-events-auto { pointer-events: auto; }
+        
+        /* Top HUD */
+        #top-hud { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px; width: 100%; background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%); }
+        
+        #left-hud { display: flex; flex-direction: column; gap: 8px; }
+        #char-selector { display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.2); padding: 5px; border-radius: 15px; backdrop-filter: blur(5px); }
+        .char-btn { padding: 8px 15px; border-radius: 15px; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.3s; border: 2px solid transparent; background: rgba(255,255,255,0.9); color: #333; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .char-btn.active-papino { background: var(--sims-blue); color: white; border-color: white; transform: translateX(5px); }
+        .char-btn.active-mammina { background: var(--sims-pink); color: white; border-color: white; transform: translateX(5px); }
+
+        #right-tools { display: flex; flex-direction: column; gap: 8px; align-items: flex-end;}
+        .tool-row { display: flex; gap: 5px; }
+        .tool-btn { background: rgba(255,255,255,0.9); color: #333; border: 2px solid #ccc; border-radius: 50%; width: 45px; height: 45px; font-size: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s; }
+        .tool-btn:active { transform: scale(0.9); }
+        .tool-btn.active { background: #ffc107; border-color: white; }
+        #valore-casa { background: rgba(255,255,255,0.95); padding: 5px 10px; border-radius: 10px; font-size: 12px; font-weight: bold; color: var(--sims-green); text-align: center; margin-top: 5px; border: 2px solid var(--sims-green); box-shadow: 0 2px 5px rgba(0,0,0,0.2);}
+
+        /* Control D-Pad (Frecce) */
+        #dpad-container { position: absolute; bottom: 160px; left: 15px; z-index: 40; pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .dpad-row { display: flex; gap: 5px; }
+        .dpad-btn { width: 45px; height: 45px; background: rgba(255,255,255,0.9); border: 2px solid var(--sims-blue); border-radius: 10px; font-size: 22px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; color: var(--sims-blue); transition: background 0.1s; }
+        .dpad-btn:active { background: var(--sims-blue); color: white; transform: scale(0.95); }
+
+        /* Action Button (Piazza & Linea) */
+        #action-button-container { position: absolute; bottom: 160px; right: 20px; z-index: 40; pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        #btn-mode { background: var(--sims-blue); color: white; padding: 6px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white; transition: all 0.2s; margin-bottom: 5px; }
+        #btn-mode.line-mode { background: #9b59b6; }
+        
+        #btn-action { background: #2ecc71; color: white; width: 75px; height: 75px; border-radius: 50%; border: 4px solid white; font-size: 32px; font-weight: bold; display: flex; justify-content: center; align-items: center; box-shadow: 0 6px 15px rgba(0,0,0,0.4); cursor: pointer; transition: transform 0.1s, background 0.2s; }
+        #btn-action:active { transform: scale(0.85); }
+        #btn-action.delete-mode { background: #e74c3c; }
+        #action-label { background: rgba(0,0,0,0.6); color: white; padding: 3px 10px; border-radius: 10px; font-size: 13px; font-weight: bold; text-align: center; }
+
+        /* Speech Bubble */
+        #dialogue-box { position: absolute; bottom: 250px; left: 50%; transform: translateX(-50%); background: white; border-radius: 20px; padding: 10px 15px; display: none; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 4px solid var(--sims-blue); z-index: 45; max-width: 80%; pointer-events: none; }
+        #dialogue-avatar { font-size: 25px; background: #f0f0f0; border-radius: 50%; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+        #dialogue-text { font-size: 14px; font-weight: bold; color: #444; }
+
+        /* Bottom Console */
+        #bottom-console { background: var(--ui-bg); padding: 10px; border-top-left-radius: 20px; border-top-right-radius: 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 8px; border-top: 5px solid var(--sims-blue); z-index: 50; backdrop-filter: blur(15px); transition: border-color 0.3s;}
+        
+        .status-bars { display: flex; gap: 10px; justify-content: center;}
+        .bar-container { flex: 1; max-width: 140px; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 4px 8px; }
+        .bar-label { color: #333; font-weight: bold; font-size: 10px; display: flex; justify-content: space-between; margin-bottom: 2px;}
+        .bar-bg { background: rgba(0,0,0,0.2); border-radius: 4px; height: 8px; width: 100%; overflow: hidden;}
+        .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease-out; }
+        #energy-fill { background: linear-gradient(90deg, #2196f3, #64b5f6); }
+        #materials-fill { background: linear-gradient(90deg, #ff9800, #ffb74d); }
+
+        /* Build Menus */
+        .build-menu { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
+        .build-menu::-webkit-scrollbar { display: none; }
+        .build-btn { padding: 6px; border: 3px solid transparent; border-radius: 12px; background: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 70px; flex-shrink: 0; transition: all 0.2s; }
+        .build-btn.selected { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.15);}
+        #menu-papino .build-btn.selected { border-color: var(--sims-blue); background: #e3f2fd; }
+        #menu-mammina .build-btn.selected { border-color: var(--sims-pink); background: #fce4ec; }
+        
+        .build-icon { font-size: 22px; margin-bottom: 2px;}
+        .build-name { font-size: 10px; font-weight: bold; color: #555; text-align: center; line-height: 1; }
+        .build-hint { font-size: 9px; color: #999; margin-top: 2px; }
+
+        /* Color Palette Modal */
+        #color-palette { display: none; position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%); background: white; padding: 10px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 3px solid var(--sims-pink); z-index: 60; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 250px;}
+        .color-swatch { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc; cursor: pointer; transition: transform 0.2s; }
+        .color-swatch:active { transform: scale(0.9); }
+
+        .floating-text { position: absolute; color: white; font-weight: bold; font-size: 16px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); pointer-events: none; opacity: 1; z-index: 50; }
+
+        @media (max-width: 600px) {
+            .build-btn { min-width: 65px; padding: 5px; }
+            .build-icon { font-size: 18px; }
+            .build-name { font-size: 9px; }
+            .tool-btn { width: 40px; height: 40px; font-size: 18px;}
+            #btn-action { width: 65px; height: 65px; font-size: 25px; }
+            .dpad-btn { width: 40px; height: 40px; font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Intro Screen -->
+    <div id="intro-screen">
+        <h1>BUONA FESTA DEL PAPÀ<br>al nostro tuttofare preferito!</h1>
+        <p>Ti vogliamo tanto bene! ❤️</p>
+        <button id="btn-start" onclick="startGame()">Inizia a Giocare 🔨</button>
+    </div>
+
+    <div id="game-canvas"></div>
+
+    <div id="ui-layer">
+        <div id="top-hud" class="pointer-events-auto">
+            <div id="left-hud">
+                <div id="char-selector">
+                    <div id="sel-papino" class="char-btn active-papino" onclick="switchCharacter('papino')">👨 Papino (Lavori)</div>
+                    <div id="sel-mammina" class="char-btn" onclick="switchCharacter('mammina')">👩 Mammina (Aiuto)</div>
+                </div>
+            </div>
+            
+            <div id="right-tools">
+                <div class="tool-row">
+                    <div class="tool-btn" onclick="exportBackup()" title="Backup (Salva)">💾</div>
+                    <div class="tool-btn" onclick="document.getElementById('restore-file').click()" title="Ripristina">📂</div>
+                    <input type="file" id="restore-file" style="display:none" accept=".json" onchange="importRestore(event)">
+                </div>
+                <div class="tool-row">
+                    <div class="tool-btn" id="btn-sound" onclick="toggleSound()" title="Audio">🔊</div>
+                    <div class="tool-btn" id="btn-view" onclick="toggleInteriorView()" title="Vista Tetti">🏠</div>
+                    <div class="tool-btn" onclick="expandMap()" title="Espandi">➕</div>
+                </div>
+                <div id="valore-casa">Valore:<br>€ <span id="valore-num">0</span></div>
+            </div>
+        </div>
+
+        <!-- Frecce di movimento (D-Pad) -->
+        <div id="dpad-container">
+            <div class="dpad-row">
+                <div class="dpad-btn" onclick="moveCursor(0, -1)">▲</div>
+            </div>
+            <div class="dpad-row">
+                <div class="dpad-btn" onclick="moveCursor(-1, 0)">◀</div>
+                <div class="dpad-btn" onclick="moveCursor(0, 1)">▼</div>
+                <div class="dpad-btn" onclick="moveCursor(1, 0)">▶</div>
+            </div>
+        </div>
+
+        <!-- Pulsante Azione (Mirino + Modalità Linea) -->
+        <div id="action-button-container">
+            <div id="btn-mode" onclick="toggleBuildMode()">🧱 Singolo</div>
+            <div id="action-label">Piazza</div>
+            <div id="btn-action" onclick="executeGridAction()">✅</div>
+        </div>
+
+        <div id="dialogue-box">
+            <div id="dialogue-avatar">👨</div><div id="dialogue-text">Andiamo a costruire!</div>
+        </div>
+
+        <div id="color-palette" class="pointer-events-auto">
+            <div class="color-swatch" style="background:#ecf0f1" onclick="selectColor(0xecf0f1)"></div>
+            <div class="color-swatch" style="background:#e84393" onclick="selectColor(0xe84393)"></div>
+            <div class="color-swatch" style="background:#3498db" onclick="selectColor(0x3498db)"></div>
+            <div class="color-swatch" style="background:#f1c40f" onclick="selectColor(0xf1c40f)"></div>
+            <div class="color-swatch" style="background:#2ecc71" onclick="selectColor(0x2ecc71)"></div>
+            <div class="color-swatch" style="background:#e67e22" onclick="selectColor(0xe67e22)"></div>
+            <div class="color-swatch" style="background:#7f8c8d" onclick="selectColor(0x7f8c8d)"></div>
+        </div>
+
+        <div id="bottom-console" class="pointer-events-auto">
+            <div class="status-bars">
+                <div class="bar-container" id="bar-energy">
+                    <div class="bar-label"><span>⚡ Energia</span><span id="energy-val">100%</span></div>
+                    <div class="bar-bg"><div id="energy-fill" style="width: 100%;"></div></div>
+                </div>
+                <div class="bar-container">
+                    <div class="bar-label"><span>📦 Materiali</span><span id="materials-val">100</span></div>
+                    <div class="bar-bg"><div id="materials-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+
+            <!-- Papino Menu -->
+            <div id="menu-papino" class="build-menu">
+                <div class="build-btn selected" id="tool-wall" onclick="selectTool('wall')">
+                    <div class="build-icon">🧱</div><div class="build-name">Muro Est.</div><div class="build-hint">-10 Mat.</div>
+                </div>
+                <div class="build-btn" id="tool-window" onclick="selectTool('window')">
+                    <div class="build-icon">🪟</div><div class="build-name">Finestra</div><div class="build-hint">-15 Mat.</div>
+                </div>
+                <div class="build-btn" id="tool-door" onclick="selectTool('door')">
+                    <div class="build-icon">🚪</div><div class="build-name">Porta</div><div class="build-hint">-10 Mat.</div>
+                </div>
+                <div class="build-btn" id="tool-wall_int" onclick="selectTool('wall_int')">
+                    <div class="build-icon">📏</div><div class="build-name">Muro Int.</div><div class="build-hint">-5 Mat.</div>
+                </div>
+                <div class="build-btn" id="tool-floor" onclick="selectTool('floor')">
+                    <div class="build-icon">🔲</div><div class="build-name">Pavimento</div><div class="build-hint">-5 Mat.</div>
+                </div>
+                <div class="build-btn" id="tool-pool" onclick="selectTool('pool')">
+                    <div class="build-icon">🏊</div><div class="build-name">Piscina</div><div class="build-hint">-20 Mat.</div>
+                </div>
+                <div class="build-btn" id="tool-delete_p" onclick="selectTool('delete')">
+                    <div class="build-icon">💣</div><div class="build-name">Demolisci</div><div class="build-hint">Rimborsa</div>
+                </div>
+            </div>
+            
+            <!-- Mammina Menu -->
+            <div id="menu-mammina" class="build-menu" style="display: none;">
+                <div class="build-btn selected" id="tool-paint" onclick="selectTool('paint')">
+                    <div class="build-icon">🖌️</div><div class="build-name">Dipingi</div><div class="build-hint">Colori</div>
+                </div>
+                <div class="build-btn" id="tool-sofa" onclick="selectTool('sofa')">
+                    <div class="build-icon">🛋️</div><div class="build-name">Divano</div><div class="build-hint">Ruotabile</div>
+                </div>
+                <div class="build-btn" id="tool-bed" onclick="selectTool('bed')">
+                    <div class="build-icon">🛏️</div><div class="build-name">Letto</div>
+                </div>
+                <div class="build-btn" id="tool-table" onclick="selectTool('table')">
+                    <div class="build-icon">🪑</div><div class="build-name">Tavolo</div>
+                </div>
+                <div class="build-btn" id="tool-plant" onclick="selectTool('plant')">
+                    <div class="build-icon">🪴</div><div class="build-name">Pianta</div>
+                </div>
+                <div class="build-btn" id="tool-water" onclick="selectTool('water')">
+                    <div class="build-icon">💧</div><div class="build-name">Annaffia</div><div class="build-hint">Sboccia</div>
+                </div>
+                <div class="build-btn" id="tool-move" onclick="selectTool('move')">
+                    <div class="build-icon">🖐️</div><div class="build-name">Sposta</div><div class="build-hint">Mobili</div>
+                </div>
+                <div class="build-btn" id="tool-buff" onclick="giveBuff()">
+                    <div class="build-icon">💪</div><div class="build-name">Tifa Papà</div><div class="build-hint">Super!</div>
+                </div>
+                <div class="build-btn" id="tool-coffee" onclick="giveCoffee()">
+                    <div class="build-icon">☕</div><div class="build-name">Caffè</div>
+                </div>
+                <div class="build-btn" id="tool-delete_m" onclick="selectTool('delete')">
+                    <div class="build-icon">🗑️</div><div class="build-name">Vendi</div><div class="build-hint">Rimborsa</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// --- AUDIO ---
+let audioCtx = null; let soundEnabled = true;
+function initAudio() {
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playSound(type) {
+    if (!soundEnabled || !audioCtx) return;
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    if (type === 'build') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'paint') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(600, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+    } else if (type === 'magic') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'error') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); osc.frequency.linearRampToValueAtTime(80, now + 0.2);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
+    } else if (type === 'delete') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(80, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+    }
+}
+function toggleSound() {
+    initAudio(); soundEnabled = !soundEnabled;
+    document.getElementById('btn-sound').innerText = soundEnabled ? '🔊' : '🔇';
+    document.getElementById('btn-sound').classList.toggle('active', !soundEnabled);
+}
+
+// --- STATO DEL GIOCO E CURSORE ---
+let gameState = {
+    energy: 100, materials: 200,
+    activeChar: 'papino', currentTool: 'wall', 
+    buildMode: 'single', // 'single' o 'line'
+    lineStart: null,     // Memorizza il punto di inizio della striscia
+    mapSize: 30, houseValue: 0, interiorView: false, paintColor: 0xecf0f1,
+    gridData: {}, papinoQueue: [], mamminaQueue: [], papinoBuff: 0, movingItem: null
+};
+
+let cursorGridPos = {x: 0, z: 0}; 
+let dialogueTimeout;
+const ITEM_COSTS = { wall: 10, window: 15, door: 10, wall_int: 5, floor: 5, pool: 20, sofa: 15, bed: 20, table: 10, plant: 5, paint: 2, water: 0, delete: 0, move: 0 };
+
+// --- BACKUP E RESTORE ---
+function exportBackup() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(gameState));
+    const a = document.createElement('a');
+    a.setAttribute("href", dataStr);
+    a.setAttribute("download", "salvataggio_costruttore_eroe.json");
+    document.body.appendChild(a); a.click(); a.remove();
+    speak('papino', "Backup salvato sul computer!");
+}
+
+function importRestore(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            Object.assign(gameState, parsed);
+            gameState.papinoQueue = []; gameState.mamminaQueue = []; gameState.movingItem = null; gameState.lineStart = null;
+            rebuildFromData(); updateUI(); updateCursorVisuals();
+            speak('papino', "Backup ripristinato con successo!"); playSound('magic');
+        } catch(err) { alert("Errore file salvataggio."); }
+    };
+    reader.readAsText(file);
+}
+
+// --- MODALITÀ STRISCIA (LINEA) ---
+function toggleBuildMode() {
+    if (gameState.buildMode === 'single') {
+        gameState.buildMode = 'line';
+        document.getElementById('btn-mode').innerText = "📏 Striscia";
+        document.getElementById('btn-mode').classList.add('line-mode');
+    } else {
+        gameState.buildMode = 'single';
+        gameState.lineStart = null;
+        document.getElementById('btn-mode').innerText = "🧱 Singolo";
+        document.getElementById('btn-mode').classList.remove('line-mode');
+    }
+    updateCursorVisuals();
+}
+
+function getLinePoints(start, end) {
+    let points = [];
+    let dx = end.x - start.x;
+    let dz = end.z - start.z;
+    if (Math.abs(dx) > Math.abs(dz)) {
+        let step = dx > 0 ? 1 : (dx < 0 ? -1 : 1);
+        if (dx === 0) step = 1; 
+        for(let x = start.x; step > 0 ? x <= end.x : x >= end.x; x += step) {
+            points.push({x: x, z: start.z});
+        }
+    } else {
+        let step = dz > 0 ? 1 : (dz < 0 ? -1 : 1);
+        if (dz === 0) step = 1;
+        for(let z = start.z; step > 0 ? z <= end.z : z >= end.z; z += step) {
+            points.push({x: start.x, z: z});
+        }
+    }
+    return points;
+}
+
+// --- THREE.JS GLOBALS ---
+let scene, camera, renderer, clock = new THREE.Clock(), controls;
+let papino, mammina, houseGroup, deliveryZone, environmentGroup, previewGroup;
+let groundPlane, gridHelper, selectionCursor;
+let raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let pointerDownPos = new THREE.Vector2();
+let papinoTarget = new THREE.Vector3(2, 0, 2), mamminaTarget = new THREE.Vector3(-3, 0, -3);
+let mamminaBuffing = false, mamminaDeliveringCoffee = false;
+let animatedCharacters = []; let meshDictionary = {}; let particles = [];
+
+// Materiali
+const mats = {
+    rawWall: new THREE.MeshStandardMaterial({ color: 0xbdc3c7, roughness: 0.9 }),
+    intWall: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }),
+    floor: new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.6 }),
+    poolWater: new THREE.MeshStandardMaterial({ color: 0x00bcd4, transparent: true, opacity: 0.8, roughness: 0.1 }),
+    poolBorder: new THREE.MeshStandardMaterial({ color: 0xecf0f1 }),
+    grass: new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 1 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0xaaddff, transparent: true, opacity: 0.6, roughness: 0.1 })
+};
+
+function startGame() {
+    initAudio();
+    document.getElementById('intro-screen').style.opacity = '0';
+    document.getElementById('intro-screen').style.pointerEvents = 'none';
+    setTimeout(() => {
+        document.getElementById('intro-screen').style.display = 'none';
+        document.getElementById('ui-layer').style.display = 'flex';
+        clock.getDelta(); 
+        animate();
+    }, 500);
+}
+
+window.addEventListener('load', init);
+
+// Helper function to get grid position from 3D point
+function getGridPos(point) { 
+    return { x: Math.round(point.x), z: Math.round(point.z) }; 
+}
+
+function updateRaycaster(event) {
+    let clientX = event.changedTouches ? event.changedTouches[0].clientX : event.clientX;
+    let clientY = event.changedTouches ? event.changedTouches[0].clientY : event.clientY;
+    mouse.x = (clientX / window.innerWidth) * 2 - 1; 
+    mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+}
+
+function init() {
+    try {
+        const saved = localStorage.getItem('papinoFestaDelPapa');
+        if(saved) { 
+            Object.assign(gameState, JSON.parse(saved)); 
+            gameState.papinoQueue = []; gameState.mamminaQueue = []; gameState.movingItem = null; gameState.lineStart = null;
+            gameState.buildMode = 'single';
+        }
+    } catch(e) {}
+
+    const container = document.getElementById('game-canvas');
+    if (!container) return; 
+    
+    scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+    camera.position.set(15, 20, 15);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2.1; controls.minDistance = 5; controls.maxDistance = 60;
+    controls.target.set(0, 0, 0);
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7); scene.add(hemiLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(15, 25, 10); dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024; dirLight.shadow.mapSize.height = 1024;
+    scene.add(dirLight);
+
+    environmentGroup = new THREE.Group(); scene.add(environmentGroup);
+    previewGroup = new THREE.Group(); scene.add(previewGroup);
+    setupTerrainAndGrid(); createDeliveryZone();
+
+    // Cursore
+    selectionCursor = new THREE.Group();
+    const cursorBase = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), new THREE.MeshBasicMaterial({ color: 0x2ecc71, transparent: true, opacity: 0.4 }));
+    cursorBase.position.y = 0.05;
+    const arrowGeo = new THREE.ConeGeometry(0.2, 0.5, 4); arrowGeo.rotateX(Math.PI);
+    const cursorArrow = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color: 0x2ecc71 }));
+    cursorArrow.position.y = 1.5;
+    selectionCursor.add(cursorBase, cursorArrow);
+    selectionCursor.visible = true; 
+    selectionCursor.userData = { base: cursorBase, arrow: cursorArrow, time: 0 };
+    scene.add(selectionCursor);
+
+    houseGroup = new THREE.Group(); scene.add(houseGroup);
+    try { rebuildFromData(); } catch(e) { gameState.gridData = {}; rebuildFromData(); }
+    createCharacters();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    
+    // Tocco serve solo a muovere cursore veloce
+    renderer.domElement.addEventListener('pointerdown', e => { pointerDownPos.set(e.clientX, e.clientY); });
+    renderer.domElement.addEventListener('pointerup', e => {
+        if (pointerDownPos.distanceTo(new THREE.Vector2(e.clientX, e.clientY)) < 10) {
+            updateRaycaster(e);
+            const intersects = raycaster.intersectObject(groundPlane);
+            if (intersects.length > 0) {
+                cursorGridPos = getGridPos(intersects[0].point);
+                updateCursorVisuals();
+            }
+        }
+    });
+
+    switchCharacter(gameState.activeChar);
+    updateCursorVisuals();
+    updateUI(); applyInteriorView();
+    setInterval(saveGame, 2000);
+}
+
+// --- PARTICELLE E AMBIENTE ---
+function spawnParticles(x, z, type) {
+    const count = type === 'magic' ? 8 : (type === 'delete' ? 10 : 5);
+    const color = type === 'magic' ? 0xf1c40f : (type === 'paint' ? gameState.paintColor : 0xbdc3c7);
+    const mat = new THREE.MeshBasicMaterial({ color: color });
+    for(let i=0; i<count; i++) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), mat);
+        mesh.position.set(x + (Math.random()-0.5)*0.5, 0.5, z + (Math.random()-0.5)*0.5);
+        scene.add(mesh);
+        particles.push({ mesh: mesh, vy: Math.random()*0.05 + 0.02, vx: (Math.random()-0.5)*0.08, vz: (Math.random()-0.5)*0.08, life: 1.0, type: type });
+    }
+}
+function updateParticles(delta) {
+    for(let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.life -= delta * 2;
+        if(p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); } 
+        else { p.mesh.position.y += p.vy; p.mesh.position.x += p.vx; p.mesh.position.z += p.vz;
+               if(p.type !== 'magic') p.mesh.scale.setScalar(p.life); else p.mesh.rotation.x += 0.2; }
+    }
+}
+
+function setupTerrainAndGrid() {
+    if(groundPlane) environmentGroup.remove(groundPlane);
+    if(gridHelper) environmentGroup.remove(gridHelper);
+    groundPlane = new THREE.Mesh(new THREE.PlaneGeometry(gameState.mapSize, gameState.mapSize), mats.grass);
+    groundPlane.rotation.x = -Math.PI / 2; groundPlane.receiveShadow = true; environmentGroup.add(groundPlane);
+    gridHelper = new THREE.GridHelper(gameState.mapSize, gameState.mapSize, 0x000000, 0x000000);
+    gridHelper.material.opacity = 0.2; gridHelper.material.transparent = true; gridHelper.position.y = 0.01;
+    environmentGroup.add(gridHelper);
+}
+function expandMap() {
+    gameState.mapSize += 10; setupTerrainAndGrid();
+    if(deliveryZone) deliveryZone.position.set((gameState.mapSize/2)-2, 0, -(gameState.mapSize/2)+2);
+    playSound('magic'); speak('papino', "Mappa espansa!");
+}
+function createDeliveryZone() {
+    if(deliveryZone) environmentGroup.remove(deliveryZone);
+    deliveryZone = new THREE.Group(); deliveryZone.position.set((gameState.mapSize/2)-2, 0, -(gameState.mapSize/2)+2);
+    const pad = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({color: 0xf1c40f, side: THREE.DoubleSide}));
+    pad.rotation.x = -Math.PI / 2; pad.position.y = 0.02; deliveryZone.add(pad);
+    const boxMat = new THREE.MeshStandardMaterial({color: 0xd35400});
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), boxMat); b1.position.set(-0.5, 0.5, -0.5); b1.castShadow=true;
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), boxMat); b2.position.set(0.8, 0.4, 0.5); b2.castShadow=true;
+    deliveryZone.add(b1, b2); environmentGroup.add(deliveryZone);
+}
+
+// --- COSTRUZIONE DA DATI (REBUILD) E MOBILI ---
+function createFurnitureMesh(type, rotation, state) {
+    const group = new THREE.Group(); group.rotation.y = rotation * (Math.PI / 2);
+    if (type === 'sofa') {
+        const matC = new THREE.MeshStandardMaterial({color: 0xe74c3c}); const matB = new THREE.MeshStandardMaterial({color: 0x3e2723}); 
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.2, 0.6).translate(0,0.1,0), matB));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 0.15).translate(0,0.3,-0.225), matC));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.3, 0.6).translate(-0.375,0.25,0), matC));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.3, 0.6).translate(0.375,0.25,0), matC));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 0.45).translate(0,0.25,0.075), matC));
+    } else if (type === 'bed') {
+        const matW = new THREE.MeshStandardMaterial({color: 0xecf0f1}); const matB = new THREE.MeshStandardMaterial({color: 0x2980b9}); const matF = new THREE.MeshStandardMaterial({color: 0x8b5a2b}); 
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.2, 0.95).translate(0,0.1,0), matF));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.1).translate(0,0.35,-0.4), matF));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 0.8).translate(0,0.275,0.05), matW));
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.16, 0.5).translate(0,0.28,0.2), matB));
+    } else if (type === 'table') {
+        const mat = new THREE.MeshStandardMaterial({color: 0xd35400});
+        group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 16).translate(0,0.4,0), mat));
+        group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4).translate(0,0.2,0), mat));
+    } else if (type === 'plant') {
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.3, 8).translate(0,0.15,0), new THREE.MeshStandardMaterial({color:0xe67e22}));
+        const leaves = new THREE.Mesh(new THREE.SphereGeometry(0.3).translate(0,0.5,0), new THREE.MeshStandardMaterial({color:0x2ecc71}));
+        group.add(pot, leaves);
+        if (state === 'blooming') {
+            const flowerMat = new THREE.MeshStandardMaterial({color: 0xe84393});
+            for(let i=0; i<4; i++) {
+                const f = new THREE.Mesh(new THREE.SphereGeometry(0.08), flowerMat); f.position.set(Math.cos(i*Math.PI/2)*0.25, 0.6, Math.sin(i*Math.PI/2)*0.25); group.add(f);
+            }
+        }
+    }
+    group.traverse(c => { if(c.isMesh) { c.castShadow = true; c.receiveShadow = true; }});
+    return group;
+}
+
+function calculateValue() {
+    let val = 0;
+    for (const key in gameState.gridData) {
+        const cell = gameState.gridData[key];
+        if(cell.floor) val += 50;
+        if(cell.wall === 'wall') val += 150;
+        if(cell.wall === 'wall_int') val += 100;
+        if(cell.wall === 'window') val += 200;
+        if(cell.wall === 'door') val += 150;
+        if(cell.wall === 'pool') val += 500;
+        if(cell.furn) { val += ITEM_COSTS[cell.furn.type] * 20; if(cell.furn.state === 'blooming') val += 50; }
+    }
+    gameState.houseValue = val; document.getElementById('valore-num').innerText = val.toLocaleString();
+}
+
+function rebuildFromData() {
+    while(houseGroup.children.length > 0) {
+        let child = houseGroup.children[0];
+        houseGroup.remove(child); 
+    }
+    meshDictionary = {};
+
+    for (const [key, cell] of Object.entries(gameState.gridData)) {
+        const [x, z] = key.split('_').map(Number);
+        const cellGroup = new THREE.Group(); cellGroup.position.set(x, 0, z);
+
+        if (cell.floor) {
+            const fMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1).translate(0,0.05,0), mats.floor);
+            fMesh.receiveShadow = true; cellGroup.add(fMesh);
+        }
+        
+        if (cell.wall === 'pool') {
+            cellGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1).translate(0,0.05,0), mats.poolBorder));
+            const w = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8).rotateX(-Math.PI/2).translate(0,0.08,0), mats.poolWater);
+            cellGroup.add(w);
+        } else if (cell.wall) {
+            let h = gameState.interiorView ? 0.3 : 1.0; 
+            
+            if (cell.wall === 'window' && !gameState.interiorView) {
+                const frameGeo = new THREE.BoxGeometry(1, 1, 0.2).translate(0,0.5,0);
+                const wMat = cell.wallColor ? new THREE.MeshStandardMaterial({color: parseInt(cell.wallColor), roughness: 0.8}) : mats.rawWall;
+                const frame = new THREE.Mesh(frameGeo, wMat); frame.castShadow=true; frame.receiveShadow=true;
+                const glass = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.25).translate(0,0.5,0), mats.glass);
+                cellGroup.add(frame, glass);
+            } else if (cell.wall === 'door' && !gameState.interiorView) {
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.2).translate(0,0.5,0), mats.rawWall); cellGroup.add(frame);
+            } else {
+                let thick = cell.wall === 'wall_int' ? 0.2 : 1;
+                const wMesh = new THREE.Mesh(new THREE.BoxGeometry(thick, h, thick).translate(0, h/2, 0), (cell.wall==='wall_int') ? mats.intWall : (cell.wallColor ? new THREE.MeshStandardMaterial({color: parseInt(cell.wallColor), roughness: 0.8}) : mats.rawWall)); 
+                wMesh.castShadow=true; wMesh.receiveShadow=true; cellGroup.add(wMesh);
+            }
+        }
+
+        if (cell.furn) {
+            const fObj = createFurnitureMesh(cell.furn.type, cell.furn.rot, cell.furn.state);
+            if(cell.floor) fObj.position.y = 0.1; cellGroup.add(fObj);
+        }
+
+        houseGroup.add(cellGroup); meshDictionary[key] = cellGroup;
+    }
+    calculateValue();
+}
+
+function toggleInteriorView() {
+    gameState.interiorView = !gameState.interiorView; applyInteriorView(); rebuildFromData();
+    speak('mammina', gameState.interiorView ? "Modalità Arredo: visuale tagliata." : "Vista esterna completa."); playSound('magic');
+}
+function applyInteriorView() { document.getElementById('btn-view').classList.toggle('active', gameState.interiorView); }
+
+// --- PERSONAGGI E ANIMAZIONI ---
+function createHuman(role) {
+    const group = new THREE.Group();
+    const matSkin = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+    const matShirt = new THREE.MeshStandardMaterial({ color: role==='papino'?0x1976d2:0xe84393 });
+    const matPants = new THREE.MeshStandardMaterial({ color: role==='papino'?0x2c3e50:0x111111 });
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), matSkin); head.position.y = 1.6; head.castShadow = true; group.add(head);
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.6, 16), matShirt); torso.position.y = 1.1; torso.castShadow = true; group.add(torso);
+
+    const createLimb = (len, mat, x, y, z) => {
+        const pivot = new THREE.Group(); pivot.position.set(x, y, z);
+        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, len, 12), mat);
+        mesh.position.y = -len / 2; mesh.castShadow = true; pivot.add(mesh); return pivot;
+    };
+    const armL = createLimb(0.55, matShirt, -0.3, 1.35, 0); const armR = createLimb(0.55, matShirt, 0.3, 1.35, 0);
+    const legL = createLimb(0.7, matPants, -0.12, 0.8, 0); const legR = createLimb(0.7, matPants, 0.12, 0.8, 0);
+    group.add(armL, armR, legL, legR);
+
+    if (role === 'papino') {
+        group.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshStandardMaterial({color: 0xf1c40f})).translateY(1.62));
+        const aura = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 2, 16), new THREE.MeshBasicMaterial({color: 0xf1c40f, transparent: true, opacity: 0.3, side: THREE.DoubleSide}));
+        aura.position.y = 1; aura.visible = false; group.userData.aura = aura; group.add(aura);
+    } else {
+        group.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16, 0, Math.PI*2, 0, Math.PI/1.5), new THREE.MeshStandardMaterial({ color: 0x4a2e15 })).translateY(1.62));
+    }
+    
+    group.userData.role = role; group.userData.armL = armL; group.userData.armR = armR; 
+    group.userData.legL = legL; group.userData.legR = legR; group.userData.walkTime = 0; 
+    return group;
+}
+function createCharacters() {
+    papino = createHuman('papino'); papino.position.copy(papinoTarget); scene.add(papino); animatedCharacters.push(papino);
+    mammina = createHuman('mammina'); mammina.position.copy(mamminaTarget); scene.add(mammina); animatedCharacters.push(mammina);
+}
+
+// --- SISTEMA MIRINO (D-PAD & ACTION) ---
+function moveCursor(dx, dz) {
+    cursorGridPos.x += dx;
+    cursorGridPos.z += dz;
+    const limit = gameState.mapSize / 2;
+    if(cursorGridPos.x > limit) cursorGridPos.x = limit;
+    if(cursorGridPos.x < -limit) cursorGridPos.x = -limit;
+    if(cursorGridPos.z > limit) cursorGridPos.z = limit;
+    if(cursorGridPos.z < -limit) cursorGridPos.z = -limit;
+    
+    updateCursorVisuals();
+}
+
+function updateCursorVisuals() {
+    if (!selectionCursor) return;
+    selectionCursor.position.set(cursorGridPos.x, 0.05, cursorGridPos.z);
+    
+    // Pulisci preview
+    while(previewGroup.children.length > 0) {
+        previewGroup.remove(previewGroup.children[0]);
+    }
+
+    let cursorColor = 0x2ecc71; // Verde OK
+    const tool = gameState.currentTool;
+    const btnAction = document.getElementById('btn-action');
+    const labelAction = document.getElementById('action-label');
+
+    if (gameState.buildMode === 'line' && gameState.lineStart) {
+        const points = getLinePoints(gameState.lineStart, cursorGridPos);
+        let totalCost = 0; let validPoints = 0;
+
+        points.forEach(p => {
+            const key = `${p.x}_${p.z}`;
+            const cell = gameState.gridData[key];
+            let canBuild = true;
+
+            if (tool === 'delete') {
+                if (!cell || (gameState.activeChar === 'papino' && !cell.wall && !cell.floor) || (gameState.activeChar === 'mammina' && !cell.furn)) canBuild = false;
+            } else if (['wall', 'wall_int', 'window', 'door', 'pool'].includes(tool) && cell && cell.furn) canBuild = false;
+            
+            if (canBuild) {
+                validPoints++; totalCost += (ITEM_COSTS[tool] || 0);
+                const ghost = new THREE.Mesh(new THREE.BoxGeometry(1, 0.8, 1), new THREE.MeshBasicMaterial({color: 0x3498db, transparent: true, opacity: 0.5}));
+                ghost.position.set(p.x, 0.5, p.z);
+                previewGroup.add(ghost);
+            }
+        });
+
+        if (gameState.activeChar === 'papino' && gameState.papinoBuff > 0) totalCost = 0;
+
+        if (gameState.materials < totalCost && tool !== 'delete') {
+            cursorColor = 0xe74c3c; btnAction.style.background = "#e74c3c";
+        } else {
+            cursorColor = 0x3498db; btnAction.style.background = "#3498db";
+        }
+        labelAction.innerText = `Conferma (${validPoints})`;
+        
+    } else {
+        // Modalità singola
+        if(tool === 'move' && gameState.movingItem) cursorColor = 0x3498db; 
+        
+        const key = `${cursorGridPos.x}_${cursorGridPos.z}`;
+        const cell = gameState.gridData[key];
+        
+        if (tool === 'delete') {
+            if (!cell || (gameState.activeChar === 'papino' && !cell.wall && !cell.floor) || (gameState.activeChar === 'mammina' && !cell.furn)) {
+                cursorColor = 0xe74c3c; 
+            }
+        } else if (['wall', 'wall_int', 'window', 'door', 'pool'].includes(tool) && cell && cell.furn) {
+            cursorColor = 0xe74c3c; 
+        }
+
+        if(gameState.buildMode === 'line' && !gameState.lineStart) {
+            btnAction.innerHTML = "📍"; btnAction.style.background = "#9b59b6"; labelAction.innerText = "Inizia Linea"; cursorColor = 0x9b59b6;
+        } else if (tool === 'delete') {
+            btnAction.innerHTML = "💣"; btnAction.style.background = "#e74c3c"; labelAction.innerText = "Demolisci";
+        } else if (tool === 'move') {
+            btnAction.innerHTML = "🖐️"; btnAction.style.background = "#3498db"; labelAction.innerText = "Sposta";
+        } else {
+            btnAction.innerHTML = "✅"; btnAction.style.background = "#2ecc71"; labelAction.innerText = "Piazza";
+        }
+    }
+
+    selectionCursor.userData.base.material.color.setHex(cursorColor);
+    selectionCursor.userData.arrow.material.color.setHex(cursorColor);
+}
+
+// Chiamato dal pulsante gigante ✅
+function executeGridAction() {
+    if (!selectionCursor.visible) return; // Fuori mappa
+
+    const gridPos = cursorGridPos;
+    const key = `${gridPos.x}_${gridPos.z}`;
+    
+    // Controllo Zona Scarico (Camion)
+    if (Math.abs(gridPos.x - deliveryZone.position.x) < 2 && Math.abs(gridPos.z - deliveryZone.position.z) < 2) {
+        const queue = gameState.activeChar === 'papino' ? gameState.papinoQueue : gameState.mamminaQueue;
+        queue.push({ action: 'restock', target: deliveryZone.position.clone() });
+        playSound('build');
+        return;
+    }
+
+    const tool = gameState.currentTool;
+    if(tool === 'paint' && gameState.activeChar === 'mammina') {
+        document.getElementById('color-palette').style.display = 'flex'; return; 
+    }
+    
+    // Modalità Striscia
+    if (gameState.buildMode === 'line') {
+        if (!gameState.lineStart) {
+            gameState.lineStart = {x: gridPos.x, z: gridPos.z};
+            updateCursorVisuals(); playSound('magic'); return;
+        } else {
+            const points = getLinePoints(gameState.lineStart, gridPos);
+            let totalCost = 0; let validPoints = [];
+
+            points.forEach(p => {
+                const pKey = `${p.x}_${p.z}`;
+                const cell = gameState.gridData[pKey];
+                let canBuild = true;
+                if (tool === 'delete') {
+                    if (!cell || (gameState.activeChar === 'papino' && !cell.wall && !cell.floor) || (gameState.activeChar === 'mammina' && !cell.furn)) canBuild = false;
+                } else if (['wall', 'wall_int', 'window', 'door', 'pool'].includes(tool) && cell && cell.furn) canBuild = false;
+                if (canBuild) { validPoints.push(p); totalCost += (ITEM_COSTS[tool] || 0); }
+            });
+
+            if (gameState.activeChar === 'papino' && gameState.papinoBuff > 0) totalCost = 0;
+            const queue = gameState.activeChar === 'papino' ? gameState.papinoQueue : gameState.mamminaQueue;
+
+            if (gameState.materials >= totalCost || tool === 'delete') {
+                validPoints.forEach(p => {
+                    queue.push({ x: p.x, z: p.z, action: tool, char: gameState.activeChar, target: new THREE.Vector3(p.x, 0, p.z) });
+                });
+                if(tool !== 'delete') gameState.materials -= totalCost; 
+                gameState.lineStart = null; 
+                updateCursorVisuals(); updateUI(); if(tool !== 'delete') playSound('build'); 
+            } else {
+                speak(gameState.activeChar, "Materiali Insufficienti per la striscia!"); playSound('error'); 
+            }
+            return;
+        }
+    }
+
+    // Modalità Singola
+    if(tool === 'delete') {
+         const cellData = gameState.gridData[key];
+         if (!cellData) return; 
+         if (gameState.activeChar === 'papino' && !cellData.wall && !cellData.floor) return;
+         if (gameState.activeChar === 'mammina' && !cellData.furn) return;
+    }
+
+    let cost = ITEM_COSTS[tool] || 0;
+    if (gameState.activeChar === 'papino' && gameState.papinoBuff > 0) cost = 0; 
+
+    const queue = gameState.activeChar === 'papino' ? gameState.papinoQueue : gameState.mamminaQueue;
+    if (queue.length > 15) return;
+
+    if (gameState.materials >= cost || tool === 'move') {
+        queue.push({ x: gridPos.x, z: gridPos.z, action: tool, char: gameState.activeChar, target: new THREE.Vector3(gridPos.x, 0, gridPos.z) });
+        if(tool !== 'move') gameState.materials -= cost; 
+        updateUI();
+        if(tool !== 'move') playSound('build'); 
+    } else {
+        speak(gameState.activeChar, "Materiali Finiti! Punta al camion e premi il tasto verde."); playSound('error'); 
+    }
+}
+
+// --- ESECUZIONE CODA ---
+function processQueue(charName) {
+    const queue = charName === 'papino' ? gameState.papinoQueue : gameState.mamminaQueue;
+    if (queue.length === 0) return;
+
+    const q = queue[0];
+    const char = charName === 'papino' ? papino : mammina;
+    const targetChar = charName === 'papino' ? papinoTarget : mamminaTarget;
+    
+    targetChar.copy(q.target);
+
+    if (char.position.distanceTo(q.target) < 1.0) {
+        if (q.action === 'restock') {
+            gameState.materials += 200; speak(charName, "Carico completo! +200 Mat."); playSound('magic');
+        } else {
+            const key = `${q.x}_${q.z}`;
+            if (!gameState.gridData[key]) gameState.gridData[key] = {};
+            const cell = gameState.gridData[key];
+            let success = false, didRotate = false, refund = 0;
+
+            if (['wall', 'wall_int', 'window', 'door', 'pool'].includes(q.action)) {
+                if (!cell.furn && cell.wall !== q.action) { cell.wall = q.action; success = true; }
+            } else if (q.action === 'floor') {
+                if (!cell.floor && cell.wall !== 'pool') { cell.floor = 'wood'; success = true; }
+            } else if (q.action === 'delete') {
+                if(charName === 'papino') {
+                    if(cell.wall) { refund += ITEM_COSTS[cell.wall]||0; delete cell.wall; success = true; }
+                    else if(cell.floor) { refund += ITEM_COSTS['floor']; delete cell.floor; success = true; }
+                }
+                if(charName === 'mammina' && cell.furn) { 
+                    refund += ITEM_COSTS[cell.furn.type]||0; delete cell.furn; success = true; 
+                }
+                if(success) { gameState.materials += refund; playSound('delete'); }
+            } else if (['sofa', 'bed', 'table', 'plant'].includes(q.action)) {
+                if (!cell.wall || cell.wall === 'wall_int') {
+                    if (cell.furn && cell.furn.type === q.action) {
+                        cell.furn.rot = (cell.furn.rot + 1) % 4; didRotate = true; success = true;
+                    } else { cell.furn = { type: q.action, rot: 0, state: 'normal' }; success = true; }
+                }
+            } else if (q.action === 'paint_action') {
+                if (['wall', 'wall_int', 'window'].includes(cell.wall)) { cell.wallColor = gameState.paintColor; success = true; }
+            } else if (q.action === 'water') {
+                if (cell.furn && cell.furn.type === 'plant' && cell.furn.state !== 'blooming') {
+                    cell.furn.state = 'blooming'; success = true; speak('mammina', "Che bei fiori! 🌸"); playSound('magic');
+                }
+            } else if (q.action === 'move') {
+                if (charName === 'mammina') {
+                    if (!gameState.movingItem) {
+                        if (cell.furn) { gameState.movingItem = cell.furn; delete cell.furn; success = true; speak('mammina', "Oggetto preso!"); playSound('build');}
+                    } else {
+                        if (!cell.wall || cell.wall === 'wall_int') {
+                            if (!cell.furn) { cell.furn = gameState.movingItem; gameState.movingItem = null; success = true; speak('mammina', "Posizionato!"); playSound('build');}
+                        }
+                    }
+                }
+            }
+
+            if (success) {
+                char.userData.armR.rotation.x = -Math.PI/2; setTimeout(()=> { if(char) char.userData.armR.rotation.x = 0; }, 200);
+                
+                if(q.action === 'paint_action') { playSound('paint'); spawnParticles(q.x, q.z, 'paint'); }
+                else if(q.action === 'water') { spawnParticles(q.x, q.z, 'magic'); }
+                else if(q.action === 'delete') { spawnParticles(q.x, q.z, 'delete'); }
+                else if(q.action !== 'move' && !didRotate) { spawnParticles(q.x, q.z, 'dust'); }
+
+                if (!didRotate && q.action !== 'delete' && q.action !== 'paint_action' && q.action !== 'water' && q.action !== 'move') {
+                    if (!(charName === 'papino' && gameState.papinoBuff > 0)) gameState.energy -= 2; 
+                }
+                
+                if(!cell.wall && !cell.floor && !cell.furn) delete gameState.gridData[key];
+                rebuildFromData();
+            } else {
+                let cost = ITEM_COSTS[q.action] || 0;
+                if (!(charName === 'papino' && gameState.papinoBuff > 0)) gameState.materials += cost;
+            }
+        }
+        queue.shift(); updateUI(); updateCursorVisuals();
+    }
+}
+
+// --- UI E UTILS ---
+function switchCharacter(charName) {
+    gameState.activeChar = charName;
+    document.getElementById('sel-papino').className = 'char-btn' + (charName === 'papino' ? ' active-papino' : '');
+    document.getElementById('sel-mammina').className = 'char-btn' + (charName === 'mammina' ? ' active-mammina' : '');
+    document.getElementById('menu-papino').style.display = charName === 'papino' ? 'flex' : 'none';
+    document.getElementById('menu-mammina').style.display = charName === 'mammina' ? 'flex' : 'none';
+    document.getElementById('bottom-console').style.borderTopColor = charName === 'papino' ? 'var(--sims-blue)' : 'var(--sims-pink)';
+    document.getElementById('color-palette').style.display = 'none';
+    
+    if(gameState.movingItem) {
+        gameState.materials += ITEM_COSTS[gameState.movingItem.type] || 0;
+        gameState.movingItem = null;
+    }
+    if (gameState.buildMode === 'line') toggleBuildMode(); 
+    
+    selectTool(charName === 'papino' ? 'wall' : 'paint');
+}
+
+function selectTool(toolName) {
+    if(gameState.movingItem && toolName !== 'move') {
+        gameState.materials += ITEM_COSTS[gameState.movingItem.type] || 0;
+        gameState.movingItem = null; speak('mammina', "Mobile venduto!");
+    }
+    
+    gameState.currentTool = toolName;
+    gameState.lineStart = null; 
+    document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('selected'));
+    const btn = document.getElementById(`tool-${toolName}`);
+    if(btn) btn.classList.add('selected');
+    if(toolName !== 'paint') document.getElementById('color-palette').style.display = 'none';
+
+    updateCursorVisuals();
+}
+
+function selectColor(hex) {
+    gameState.paintColor = hex; document.getElementById('color-palette').style.display = 'none';
+    if (selectionCursor.visible) {
+        gameState.mamminaQueue.push({ x: cursorGridPos.x, z: cursorGridPos.z, action: 'paint_action', char: 'mammina', target: new THREE.Vector3(cursorGridPos.x, 0, cursorGridPos.z) });
+    }
+}
+
+function giveBuff() {
+    if (gameState.papinoBuff > 0) return; mamminaBuffing = true;
+    speak('mammina', "Forza Papà! Ti aiuto io! 💪"); playSound('magic');
+    mamminaTarget.copy(papino.position).add(new THREE.Vector3(1, 0, 1));
+}
+function giveCoffee() {
+    if (mamminaDeliveringCoffee || gameState.energy >= 100) return; mamminaDeliveringCoffee = true;
+    speak('mammina', "Un caffè in arrivo! ☕"); playSound('magic');
+    mamminaTarget.copy(papino.position).add(new THREE.Vector3(1, 0, 1));
+}
+
+function speak(character, text) {
+    const box = document.getElementById('dialogue-box');
+    box.style.animation = 'none'; box.offsetHeight; box.style.animation = null; box.style.display = 'flex';
+    document.getElementById('dialogue-avatar').innerText = character === 'papino' ? '👨' : '👩';
+    box.style.borderColor = character === 'papino' ? 'var(--sims-blue)' : 'var(--sims-pink)';
+    document.getElementById('dialogue-text').innerText = text;
+    clearTimeout(dialogueTimeout); dialogueTimeout = setTimeout(() => { box.style.display = 'none'; }, 3500);
+}
+
+function updateUI() {
+    const eVal = document.getElementById('energy-val'), eFill = document.getElementById('energy-fill');
+    if (gameState.papinoBuff > 0) {
+        eVal.innerText = "SUPER!"; eFill.style.background = "linear-gradient(90deg, #f1c40f, #f39c12)";
+    } else {
+        eVal.innerText = Math.round(Math.max(0, Math.min(100, gameState.energy))) + "%";
+        eFill.style.background = "linear-gradient(90deg, #2196f3, #64b5f6)";
+    }
+    eFill.style.width = Math.max(0, Math.min(100, gameState.energy)) + "%";
+    document.getElementById('materials-fill').style.width = Math.max(0, Math.min(100, (gameState.materials/300)*100)) + "%";
+    document.getElementById('materials-val').innerText = Math.round(gameState.materials);
+}
+
+function saveGame() { localStorage.setItem('papinoFestaDelPapa', JSON.stringify(gameState)); }
+
+// --- RENDER LOOP ---
+function animate() {
+    requestAnimationFrame(animate);
+    if (!controls || !scene || !camera || !renderer) return; 
+
+    const delta = Math.min(clock.getDelta(), 0.1);
+
+    controls.update(); 
+    updateParticles(delta);
+    
+    if (selectionCursor.visible) {
+        selectionCursor.userData.time += delta * 6;
+        selectionCursor.userData.arrow.position.y = 1.2 + Math.sin(selectionCursor.userData.time) * 0.2;
+        selectionCursor.userData.arrow.rotation.y += delta * 2;
+    }
+
+    if (gameState.papinoBuff > 0) {
+        gameState.papinoBuff -= delta;
+        papino.userData.aura.visible = true; papino.userData.aura.rotation.y += delta * 5;
+        if (gameState.papinoBuff <= 0) { papino.userData.aura.visible = false; updateUI(); }
+    }
+
+    animatedCharacters.forEach(char => {
+        let isMoving = false;
+        let target = (char.userData.role === 'papino') ? papinoTarget : mamminaTarget;
+        let speed = (char.userData.role === 'papino' && gameState.papinoBuff > 0) ? 0.16 : 0.08;
+
+        if (char.position.distanceTo(target) > 0.15) {
+            isMoving = true; char.position.lerp(target, speed); char.lookAt(target.x, char.position.y, target.z);
+        }
+
+        if (isMoving) {
+            char.userData.walkTime += delta * (speed > 0.1 ? 30 : 15); const swing = Math.sin(char.userData.walkTime);
+            char.userData.legL.rotation.x = swing * 0.5; char.userData.legR.rotation.x = -swing * 0.5;
+            if(char.userData.armL.rotation.x > -1) char.userData.armL.rotation.x = -swing * 0.5; 
+            if(char.userData.armR.rotation.x > -1) char.userData.armR.rotation.x = swing * 0.5;
+        } else {
+            char.userData.walkTime = 0; char.userData.legL.rotation.x = 0; char.userData.legR.rotation.x = 0;
+            if(char.userData.armL.rotation.x > -1) char.userData.armL.rotation.x = 0; 
+            if(char.userData.armR.rotation.x > -1) char.userData.armR.rotation.x = 0;
+        }
+    });
+
+    processQueue('papino'); processQueue('mammina');
+
+    if (mamminaBuffing && mammina.position.distanceTo(papino.position) < 1.5) {
+        mamminaBuffing = false; gameState.papinoBuff = 15; 
+        speak('papino', "Wow! Sembro Flash! ⚡ Tutto gratis!"); playSound('magic');
+        mamminaTarget.set(-3, 0, -3); updateUI();
+    }
+
+    if (mamminaDeliveringCoffee && mammina.position.distanceTo(papino.position) < 1.5) {
+        mamminaDeliveringCoffee = false; gameState.energy = 100; updateUI();
+        speak('papino', "Ahhh energia al 100%! Grazie Mamma."); playSound('magic');
+        mamminaTarget.set(-3, 0, -3);
+    }
+
+    renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
